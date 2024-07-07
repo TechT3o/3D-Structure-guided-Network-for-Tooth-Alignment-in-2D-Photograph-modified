@@ -21,7 +21,7 @@ def SegmentToothContour(mouth, state, if_visual=True):
     mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2RGB)    # numpy_RGB_uint8
     mouth = transform(mouth)
     mouth = mouth.unsqueeze(0).cuda()
-    
+
     with torch.no_grad():
         pred = model(mouth)
         pred = pred[0].cpu().numpy().argmax(0)
@@ -29,5 +29,8 @@ def SegmentToothContour(mouth, state, if_visual=True):
         pred = cv2.cvtColor(pred, cv2.COLOR_GRAY2BGR)
     if if_visual == True:
         cv2.imwrite(os.path.join('./result_vis', 'result_ToothContour.png'), pred)
+        from matplotlib import pyplot as plt
+        plt.imshow(pred)
+        plt.show()
     return pred          #numpy_BGR_uint8
 

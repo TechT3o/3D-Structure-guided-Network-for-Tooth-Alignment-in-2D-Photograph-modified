@@ -8,6 +8,7 @@ import numpy as np
 from torchvision.utils import make_grid
 import math
 from PIL import Image
+from matplotlib import pyplot as plt
 
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
@@ -57,8 +58,28 @@ def Stage2_Mask2Mask(data, mode, state, if_visual=False):
     generator = Generator(netG)
     prediction = generator.predict(data)       # tensor_BGR_float32 (-1to1)
     teeth_mask_align = tensor2img(prediction)  # numpy_BGR_uint8 (0-255)
+
+    # Delete next to undo iterative teeth alignment changes
+    # plt.imshow(teeth_mask_align)
+    # plt.show()
+    #
+    # data['cond_image'] = teeth_mask_align
+    # prediction = generator.predict(data)       # tensor_BGR_float32 (-1to1)
+    # teeth_mask_align = tensor2img(prediction)  # numpy_BGR_uint8 (0-255)
+    # plt.imshow(teeth_mask_align)
+    # plt.show()
+    #
+    # data['cond_image'] = teeth_mask_align
+    # prediction = generator.predict(data)  # tensor_BGR_float32 (-1to1)
+    # teeth_mask_align = tensor2img(prediction)  # numpy_BGR_uint8 (0-255)
+
+    # kernel = np.ones((7, 7), np.uint8)
+    # cv2.erode(teeth_mask_align, kernel, iterations=3)
+    # cv2.morphologyEx(teeth_mask_align, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), iterations=2)
     if if_visual == True:
         cv2.imwrite(os.path.join('./result_vis', 'teeth_mask_align.png'), teeth_mask_align)
+        plt.imshow(teeth_mask_align)
+        plt.show()
 
     return  {
         "crop_teeth_align": teeth_mask_align  #numpy_BGR_uint8

@@ -446,7 +446,15 @@ class Contour2ToothGenerator_FaceColor_LightColor():
 
         teeth_contour = self.transform(teeth_contour)
         mouth = self.transform(mouth)
-        face_light_color_bar = self.transform(face_light_color)
+        # face_light_color_bar = self.transform(face_light_color)
+        face_light_color_bar = self.transform(face_color)
+
+        # import matplotlib.pyplot as plt
+        # plt.imshow(mask, cmap='gray')
+        # plt.show()
+        #
+        # plt.imshow(face_color)
+        # plt.show()
 
         # construct the conditional image(2)
         mask = torch.from_numpy(mask).unsqueeze(0).float()
@@ -498,107 +506,108 @@ class Contour2ToothGenerator_FaceColor_LightColor():
             return prediction, out['cond_teeth_color']
 
 
-class Contour2ToothGenerator_Fourier():
-    def __init__(self, network):
-        super().__init__()
-        self.netG = network.cuda()
-        self.netG.set_new_noise_schedule()
-        
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ])
-
-    def set_input(self, data):
-        ''' must use set_device in tensor '''
-        self.bf_image = data.get('bf_image').cuda()
-        self.cond_image = data.get('cond_image').cuda()
-        self.mask = data.get('mask').cuda()
-        self.mask_image = data.get('mask_image')
-
-    def Fourier(self, img, beta):
-        # calculate Fourier Parameter
-        h, w, c = img.shape
-        
-        b = (  np.floor(np.amin((h,w))*beta)  ).astype(int)
-        b_h = b
-        b_w = b
-        # b_h = np.floor(h*beta).astype(int)
-        # b_w = np.floor(w*beta).astype(int)
-        c_h = np.floor(h/2.0).astype(int)
-        c_w = np.floor(w/2.0).astype(int)
-        h1 = c_h-b_h
-        h2 = c_h+b_h+1
-        w1 = c_w-b_w
-        w2 = c_w+b_w+1
-        # Fourier Transform
-        img_fft = np.fft.fft2(img, axes=(0,1))
-        amp = np.abs(img_fft)
-        pha = np.angle(img_fft)
-        amp_shift = np.fft.fftshift(amp, axes=(0,1))
-        amp_shift_new = np.zeros((h,w,c))
-        amp_shift_new[h1:h2, w1:w2, :] = amp_shift[h1:h2, w1:w2, :]
-        amp_new = np.fft.ifftshift(amp_shift_new, axes=(0,1))
-        recover = amp_new * np.exp( 1j * pha)
-        recover = np.abs(np.fft.ifft2(recover, axes=(0,1))).astype('uint8')
-        return recover, amp_shift_new
-
-    def Mask2TeethData_Process(self, teeth_contour, mouth, mask, face):
-        teeth_contour = cv2.cvtColor(teeth_contour, cv2.COLOR_BGR2RGB)
-        mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2RGB)
-        mask = np.array(mask)[:,:,0] / 255
-        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-
-        fourier_color, amp_shift_new = self.Fourier(face, beta=0.12)
-
-        teeth_contour = self.transform(teeth_contour)
-        mouth = self.transform(mouth)
-        fourier_color_ = self.transform(fourier_color)
-
-        # construct the conditional image(2)
-        mask = torch.from_numpy(mask).unsqueeze(0).float()
-        noisy_image = (1. - mask)*teeth_contour + mask*torch.randn_like(teeth_contour)
-        cond_image = torch.cat([teeth_contour, fourier_color_, noisy_image], dim=0)
-
-        mask_image = teeth_contour*(1. - mask) + mask
-        
-        # cv2.imwrite(os.path.join('./result_vis', 'cond_face_color.png'), cv2.cvtColor(face_color, cv2.COLOR_RGB2BGR))
-        # cv2.imwrite(os.path.join('./result_vis', 'cond_teeth_color.png'), cv2.cvtColor(teeth_color, cv2.COLOR_RGB2BGR))
-        # cv2.imwrite(os.path.join('./result_vis', 'cond_color.png'), cv2.cvtColor(teeth_color+face_color, cv2.COLOR_RGB2BGR))
-
-        out = {
-            'bf_image': teeth_contour,  #three-channel 
-            'cond_image': cond_image,   #seven-channel 
-            'mask': mask,               #one-channel
-            'mask_image': mask_image,   #three-channel
-            # 'cond_face_color': cv2.cvtColor(face_color, cv2.COLOR_RGB2BGR),
-            # 'cond_teeth_color': cv2.cvtColor(teeth_color, cv2.COLOR_RGB2BGR),
-            'cond_teeth_color': cv2.cvtColor(fourier_color, cv2.COLOR_RGB2BGR),
-        }
-        return out
-
-    def predict(self, data):
-        self.netG.eval()
-
-        with torch.no_grad():
-            teeth_contour_align = data['crop_teeth_align']
-            mouth = data['crop_mouth']
-            mask = data['crop_mask']
-            face = data['crop_face']
-
-            out = self.Mask2TeethData_Process(teeth_contour_align, mouth, mask, face)
-            bf_image = out['bf_image']
-            cond_image = out['cond_image']
-            mask_image = out['mask_image']
-            mask = out['mask']
-
-            self.set_input({
-                'bf_image': bf_image.unsqueeze(0),
-                'cond_image': cond_image.unsqueeze(0),   #four-channel 
-                'mask': mask.unsqueeze(0),               #one-channel
-                'mask_image': mask_image.unsqueeze(0),   #three-channel      
-            })
-
-            self.output, self.visuals = self.netG.restoration(self.cond_image, y_t=torch.randn_like(self.bf_image), y_0=self.bf_image, mask=self.mask, sample_num=1)
-            prediction = torch.from_numpy(self.visuals[-1].detach().float().cpu().numpy()[::-1, ...].copy())     # torch_BGR_uint8
-            return prediction, out['cond_teeth_color']
+# class Contour2ToothGenerator_Fourier():
+#     def __init__(self, network):
+#         super().__init__()
+#         self.netG = network.cuda()
+#         self.netG.set_new_noise_schedule()
+#
+#         self.transform = transforms.Compose([
+#             transforms.ToTensor(),
+#             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+#         ])
+#
+#     def set_input(self, data):
+#         ''' must use set_device in tensor '''
+#         self.bf_image = data.get('bf_image').cuda()
+#         self.cond_image = data.get('cond_image').cuda()
+#         self.mask = data.get('mask').cuda()
+#         self.mask_image = data.get('mask_image')
+#
+#     def Fourier(self, img, beta):
+#         # calculate Fourier Parameter
+#         h, w, c = img.shape
+#
+#         b = (  np.floor(np.amin((h,w))*beta)  ).astype(int)
+#         b_h = b
+#         b_w = b
+#         # b_h = np.floor(h*beta).astype(int)
+#         # b_w = np.floor(w*beta).astype(int)
+#         c_h = np.floor(h/2.0).astype(int)
+#         c_w = np.floor(w/2.0).astype(int)
+#         h1 = c_h-b_h
+#         h2 = c_h+b_h+1
+#         w1 = c_w-b_w
+#         w2 = c_w+b_w+1
+#         # Fourier Transform
+#         img_fft = np.fft.fft2(img, axes=(0,1))
+#         amp = np.abs(img_fft)
+#         pha = np.angle(img_fft)
+#         amp_shift = np.fft.fftshift(amp, axes=(0,1))
+#         amp_shift_new = np.zeros((h,w,c))
+#         amp_shift_new[h1:h2, w1:w2, :] = amp_shift[h1:h2, w1:w2, :]
+#         amp_new = np.fft.ifftshift(amp_shift_new, axes=(0,1))
+#         recover = amp_new * np.exp( 1j * pha)
+#         recover = np.abs(np.fft.ifft2(recover, axes=(0,1))).astype('uint8')
+#         return recover, amp_shift_new
+#
+#     def Mask2TeethData_Process(self, teeth_contour, mouth, mask, face):
+#         teeth_contour = cv2.cvtColor(teeth_contour, cv2.COLOR_BGR2RGB)
+#         mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2RGB)
+#         mask = np.array(mask)[:,:,0] / 255
+#         face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+#
+#         fourier_color, amp_shift_new = self.Fourier(face, beta=0.12)
+#
+#         teeth_contour = self.transform(teeth_contour)
+#         mouth = self.transform(mouth)
+#         fourier_color_ = self.transform(fourier_color)
+#
+#         # construct the conditional image(2)
+#         mask = torch.from_numpy(mask).unsqueeze(0).float()
+#         noisy_image = (1. - mask)*teeth_contour + mask*torch.randn_like(teeth_contour)
+#         cond_image = torch.cat([teeth_contour, fourier_color_, noisy_image], dim=0)
+#
+#         mask_image = teeth_contour*(1. - mask) + mask
+#
+#         # cv2.imwrite(os.path.join('./result_vis', 'cond_face_color.png'), cv2.cvtColor(face_color, cv2.COLOR_RGB2BGR))
+#         # cv2.imwrite(os.path.join('./result_vis', 'cond_teeth_color.png'), cv2.cvtColor(teeth_color, cv2.COLOR_RGB2BGR))
+#         # cv2.imwrite(os.path.join('./result_vis', 'cond_color.png'), cv2.cvtColor(teeth_color+face_color, cv2.COLOR_RGB2BGR))
+#
+#         out = {
+#             'bf_image': teeth_contour,  #three-channel
+#             'cond_image': cond_image,   #seven-channel
+#             'mask': mask,               #one-channel
+#             'mask_image': mask_image,   #three-channel
+#             # 'cond_face_color': cv2.cvtColor(face_color, cv2.COLOR_RGB2BGR),
+#             # 'cond_teeth_color': cv2.cvtColor(teeth_color, cv2.COLOR_RGB2BGR),
+#             'cond_teeth_color': cv2.cvtColor(fourier_color, cv2.COLOR_RGB2BGR),
+#         }
+#         return out
+#
+#     def predict(self, data):
+#         self.netG.eval()
+#         with torch.no_grad():
+#             teeth_contour_align = data['crop_teeth_align']
+#             mouth = data['crop_mouth']
+#             mask = data['crop_mask']
+#             face = data['crop_face']
+#
+#             out = self.Mask2TeethData_Process(teeth_contour_align, mouth, mask, face)
+#             bf_image = out['bf_image']
+#             cond_image = out['cond_image']
+#             mask_image = out['mask_image']
+#             mask = out['mask']
+#
+#
+#             self.set_input({
+#                 'bf_image': bf_image.unsqueeze(0),
+#                 'cond_image': cond_image.unsqueeze(0),   #four-channel
+#                 'mask': mask.unsqueeze(0),               #one-channel
+#                 'mask_image': mask_image.unsqueeze(0),   #three-channel
+#             })
+#
+#             self.output, self.visuals = self.netG.restoration(self.cond_image, y_t=torch.randn_like(self.bf_image), y_0=self.bf_image, mask=self.mask, sample_num=1)
+#             prediction = torch.from_numpy(self.visuals[-1].detach().float().cpu().numpy()[::-1, ...].copy())     # torch_BGR_uint8
+#
+#             return prediction, out['cond_teeth_color']

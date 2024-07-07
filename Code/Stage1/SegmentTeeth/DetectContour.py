@@ -1,4 +1,5 @@
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from copy import deepcopy
@@ -32,9 +33,10 @@ def DetectContour(img, if_visual=True):
     img_contour = cv2.dilate(img_contour, kernel, iterations=1)
     img_contour = np.flip(cv2.dilate(np.flip(img_contour), kernel, iterations=1))
 
-
     if if_visual == True:
         cv2.imwrite(os.path.join('./result_vis', 'result_contour.png'), img_contour)
+        plt.imshow(img_contour, cmap='gray')
+        plt.show()
     img_contour = Image.fromarray(cv2.cvtColor(img_contour, cv2.COLOR_BGR2RGB))
     return img_contour
 
@@ -48,5 +50,7 @@ def MaskingMouth(img, mask, if_visual = True):
 
     if if_visual == True:
         cv2.imwrite(os.path.join('./result_vis', 'masking_mouth.png'), img_mouth)
+        plt.imshow(img_mouth)
+        plt.show()
 
     return img_mouth

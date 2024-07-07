@@ -72,6 +72,11 @@ def Stage3_Mask2Teeth(data, mode, state, if_visual=False):
 
     if if_visual == True:
         cv2.imwrite(os.path.join('./result_vis', 'mouth_align.png'), mouth_align)
+        from matplotlib import pyplot as plt
+        plt.imshow(cond_teeth_color[:, :, ::-1])
+        plt.show()
+        plt.imshow(mouth_align[:, :, ::-1])
+        plt.show()
 
     return {
         "crop_mouth_align": mouth_align,              #numpy_BGR_uint8
