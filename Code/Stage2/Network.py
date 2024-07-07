@@ -721,7 +721,9 @@ class Network(BaseNetwork):
         self.loss_fn = loss_fn
 
     def set_new_noise_schedule(self, device=torch.device('cuda')):
-        to_torch = partial(torch.tensor, dtype=torch.float32, device=device)
+        # to_torch = partial(torch.tensor, dtype=torch.float32, device=device)
+        to_torch = partial(torch.tensor, dtype=torch.float32, device=torch.device('cpu'))
+
         betas = make_beta_schedule(**self.beta_schedule)
         betas = betas.detach().cpu().numpy() if isinstance(
             betas, torch.Tensor) else betas

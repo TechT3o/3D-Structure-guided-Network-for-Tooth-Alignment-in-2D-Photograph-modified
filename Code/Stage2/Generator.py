@@ -94,8 +94,9 @@ class Mask2MaskGenerator():
 class Contour2ContourGenerator():
     def __init__(self, network):
         super(Contour2ContourGenerator, self).__init__()
-        self.netG = network.cuda()
-        self.netG.set_new_noise_schedule()   
+        # self.netG = network.cuda()
+        self.netG = network.cpu()
+        self.netG.set_new_noise_schedule()
 
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -104,9 +105,13 @@ class Contour2ContourGenerator():
 
     def set_input(self, data):
         ''' must use set_device in tensor '''
-        self.bf_image = data.get('bf_image').cuda()
-        self.cond_image = data.get('cond_image').cuda()
-        self.mask = data.get('mask').cuda()
+        # self.bf_image = data.get('bf_image').cuda()
+        # self.cond_image = data.get('cond_image').cuda()
+        # self.mask = data.get('mask').cuda()
+        # self.mask_image = data.get('mask_image')
+        self.bf_image = data.get('bf_image').cpu()
+        self.cond_image = data.get('cond_image').cpu()
+        self.mask = data.get('mask').cpu()
         self.mask_image = data.get('mask_image')
 
 
@@ -156,6 +161,6 @@ class Contour2ContourGenerator():
                 'mask_image': mask_image.unsqueeze(0),   #three-channel      
             })
 
-            self.output, self.visuals = self.netG.restoration(self.cond_image, y_t=torch.randn_like(self.bf_image), y_0=self.bf_image, mask=self.mask, sample_num=1)
+            self.output, self.visuals = self.netG.restoration(self.cond_image.to('cpu'), y_t=torch.randn_like(self.bf_image).to('cpu'), y_0=self.bf_image.to('cpu'), mask=self.mask.to('cpu'), sample_num=1)
             prediction = torch.from_numpy(self.visuals[-1].detach().float().cpu().numpy()[::-1, ...].copy())
             return prediction

@@ -14,13 +14,15 @@ def SegmentToothContour(mouth, state, if_visual=True):
     ### build model
     model = UNet(n_classes=2)
     model.load_state_dict(torch.load(state))
-    model.to(torch.device('cuda'))
+    # model.to(torch.device('cuda'))
+    model.to(torch.device('cpu'))
     model.eval()
 
     ### initialize data
     mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2RGB)    # numpy_RGB_uint8
     mouth = transform(mouth)
-    mouth = mouth.unsqueeze(0).cuda()
+    # mouth = mouth.unsqueeze(0).cuda()
+    mouth = mouth.unsqueeze(0).cpu()
 
     with torch.no_grad():
         pred = model(mouth)

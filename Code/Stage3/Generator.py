@@ -414,7 +414,9 @@ class Contour2ToothGenerator_FaceColor_TeethColor():
 class Contour2ToothGenerator_FaceColor_LightColor():
     def __init__(self, network):
         super().__init__()
-        self.netG = network.cuda()
+        # self.netG = network.cuda()
+        self.netG = network.cpu()
+
         self.netG.set_new_noise_schedule()
         
         self.transform = transforms.Compose([
@@ -424,9 +426,13 @@ class Contour2ToothGenerator_FaceColor_LightColor():
 
     def set_input(self, data):
         ''' must use set_device in tensor '''
-        self.bf_image = data.get('bf_image').cuda()
-        self.cond_image = data.get('cond_image').cuda()
-        self.mask = data.get('mask').cuda()
+        # self.bf_image = data.get('bf_image').cuda()
+        # self.cond_image = data.get('cond_image').cuda()
+        # self.mask = data.get('mask').cuda()
+        # self.mask_image = data.get('mask_image')
+        self.bf_image = data.get('bf_image').cpu()
+        self.cond_image = data.get('cond_image').cpu()
+        self.mask = data.get('mask').cpu()
         self.mask_image = data.get('mask_image')
 
     def Mask2TeethData_Process(self, teeth_contour, mouth, mask, face):
@@ -501,7 +507,7 @@ class Contour2ToothGenerator_FaceColor_LightColor():
                 'mask_image': mask_image.unsqueeze(0),   #three-channel      
             })
 
-            self.output, self.visuals = self.netG.restoration(self.cond_image, y_t=torch.randn_like(self.bf_image), y_0=self.bf_image, mask=self.mask, sample_num=1)
+            self.output, self.visuals = self.netG.restoration(self.cond_image.to('cpu'), y_t=torch.randn_like(self.bf_image).to('cpu'), y_0=self.bf_image.to('cpu'), mask=self.mask.to('cpu'), sample_num=1)
             prediction = torch.from_numpy(self.visuals[-1].detach().float().cpu().numpy()[::-1, ...].copy())     # torch_BGR_uint8
             return prediction, out['cond_teeth_color']
 

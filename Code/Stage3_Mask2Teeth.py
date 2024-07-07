@@ -61,7 +61,8 @@ def Stage3_Mask2Teeth(data, mode, state, if_visual=False):
     netG = Network(GeneratorConfig['unet'], GeneratorConfig['beta_schedule'])
     # netG.load_state_dict(torch.load('Stage3/stage3_ckpt_8000.pth'), strict=False)
     netG.load_state_dict(torch.load(state), strict=False)
-    netG.to(torch.device('cuda'))
+    # netG.to(torch.device('cuda'))
+    netG.to(torch.device('cpu'))
     netG.eval()
 
     # initialize the Generator

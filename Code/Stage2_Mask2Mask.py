@@ -51,7 +51,9 @@ def Stage2_Mask2Mask(data, mode, state, if_visual=False):
     netG = Network(GeneratorConfig['unet'], GeneratorConfig['beta_schedule'])
     # netG.load_state_dict(torch.load('Stage2/stage2_ckpt_8500.pth'), strict=False)
     netG.load_state_dict(torch.load(state), strict=False)
-    netG.to(torch.device('cuda'))
+    # netG.to(torch.device('cuda'))
+    netG.to(torch.device('cpu'))
+
     netG.eval()
 
     # initialize the Generator
