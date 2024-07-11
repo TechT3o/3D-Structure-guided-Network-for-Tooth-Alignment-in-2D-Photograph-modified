@@ -1,13 +1,9 @@
 import yaml
-import json
-import cv2
-import os
 import torch
 from Stage3.Network import Network
 import numpy as np
 from torchvision.utils import make_grid
 import math
-from PIL import Image
 
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
@@ -34,52 +30,22 @@ def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
         # Important. Unlike matlab, numpy.unit8() WILL NOT round by default.
     return img_np.astype(out_type).squeeze()
 
+def Stage3_Mask2Teeth(teeth_align, mask, face):
 
-def Stage3_Mask2Teeth(data, mode, state, if_visual=False):
-    if mode in ['M2M2T']:
-        from Stage3.Generator import Mask2TeethGenerator as Generator
-        with open("./Stage3/config/config_Mask2Teeth.yaml", 'r') as f:
-            GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
-    elif mode in ['C2C2T_v1', 'C2C2T_v2']:
-        from Stage3.Generator import Contour2TeethGenerator as Generator
-        with open("./Stage3/config/config_Contour2Teeth.yaml", 'r') as f:
-            GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
-    elif mode in ['C2C2T_v2_facecolor_teethcolor']:
-        from Stage3.Generator import Contour2ToothGenerator_FaceColor_TeethColor as Generator
-        with open("./Stage3/config/config_Contour2Tooth_facecolor_teethcolor.yaml", 'r') as f:
-            GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
-    elif mode in ['C2C2T_v2_facecolor_lightcolor']:
-        from Stage3.Generator import Contour2ToothGenerator_FaceColor_LightColor as Generator
-        with open("./Stage3/config/config_Contour2Tooth_facecolor_lightcolor.yaml", 'r') as f:
-            GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
-    elif mode in ['C2C2T_v2_fourier']:
-        from Stage3.Generator import Contour2ToothGenerator_Fourier as Generator
-        with open("./Stage3/config/config_Contour2Tooth_Fourier.yaml", 'r') as f:
-            GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
-
+    from Stage3.Generator import Contour2ToothGenerator_FaceColor_LightColor as Generator
+    with open("./Stage3/config/config_Contour2Tooth_facecolor_lightcolor.yaml", 'r') as f:
+        GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
     # initialize the Network
     netG = Network(GeneratorConfig['unet'], GeneratorConfig['beta_schedule'])
-    # netG.load_state_dict(torch.load('Stage3/stage3_ckpt_8000.pth'), strict=False)
-    netG.load_state_dict(torch.load(state), strict=False)
+    netG.load_state_dict(torch.load("Stage3/ckpt/ckpt_contour2tooth_v2_ContourSegm_facecolor_lightcolor_10000.pth"),
+                         strict=False)
     netG.to(torch.device('cuda'))
     netG.eval()
 
     # initialize the Generator
     generator = Generator(netG)
-    prediction, cond_teeth_color = generator.predict(data)       # tensor_BGR_float32 (-1to1)
+    prediction = generator.predict(teeth_align, mask, face)       # tensor_BGR_float32 (-1to1)
     mouth_align = tensor2img(prediction)                          # numpy_BGR_uint8 (0-255)
-    # cond_teeth_color = tensor2img(cond_teeth_color)              # numpy_BGR_uint8 (0-255)
 
-    if if_visual == True:
-        cv2.imwrite(os.path.join('./result_vis', 'mouth_align.png'), mouth_align)
-        from matplotlib import pyplot as plt
-        plt.imshow(cond_teeth_color[:, :, ::-1])
-        plt.show()
-        plt.imshow(mouth_align[:, :, ::-1])
-        plt.show()
-
-    return {
-        "crop_mouth_align": mouth_align,              #numpy_BGR_uint8
-        "cond_teeth_color": cond_teeth_color          #numpy_BGR_uint8
-    }
+    return mouth_align
 

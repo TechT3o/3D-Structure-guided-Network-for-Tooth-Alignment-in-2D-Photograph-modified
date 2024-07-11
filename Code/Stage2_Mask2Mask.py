@@ -1,14 +1,9 @@
 import yaml
-import json
-import cv2
-import os
 import torch
 from Stage2.Network import Network
 import numpy as np
 from torchvision.utils import make_grid
 import math
-from PIL import Image
-from matplotlib import pyplot as plt
 
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
@@ -36,53 +31,23 @@ def tensor2img(tensor, out_type=np.uint8, min_max=(-1, 1)):
     return img_np.astype(out_type).squeeze()
 
 
-def Stage2_Mask2Mask(data, mode, state, if_visual=False):
-    if mode in ['M2M2T']:
-        from Stage2.Generator import Mask2MaskGenerator as Generator
-        with open("./Stage2/config/config_Mask2Mask.yaml", 'r') as f:
-            GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
-    elif mode in ['C2C2T_v1', 'C2C2T_v2', 'C2C2T_v2_facecolor_teethcolor', 'C2C2T_v2_facecolor_lightcolor', 'C2C2T_v2_fourier']:
-        from Stage2.Generator import Contour2ContourGenerator as Generator
-        with open("./Stage2/config/config_Contour2Contour.yaml", 'r') as f:
-            GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
+def Stage2_Mask2Mask(teeth_contour, mouth_mask):
 
-        
+    from Stage2.Generator import Contour2ContourGenerator as Generator
+    with open("./Stage2/config/config_Contour2Contour.yaml", 'r') as f:
+        GeneratorConfig = yaml.load(f, Loader=yaml.SafeLoader)['GeneratorConfig']
+
     # initialize the Network
     netG = Network(GeneratorConfig['unet'], GeneratorConfig['beta_schedule'])
     # netG.load_state_dict(torch.load('Stage2/stage2_ckpt_8500.pth'), strict=False)
-    netG.load_state_dict(torch.load(state), strict=False)
+    netG.load_state_dict(torch.load("Stage2/ckpt/ckpt_contour2contour_mixed_v2_ContourSegm_4000.pth"), strict=False)
     netG.to(torch.device('cuda'))
     netG.eval()
 
     # initialize the Generator
     generator = Generator(netG)
-    prediction = generator.predict(data)       # tensor_BGR_float32 (-1to1)
-    teeth_mask_align = tensor2img(prediction)  # numpy_BGR_uint8 (0-255)
-
-    # Delete next to undo iterative teeth alignment changes
-    # plt.imshow(teeth_mask_align)
-    # plt.show()
-    #
-    # data['cond_image'] = teeth_mask_align
-    # prediction = generator.predict(data)       # tensor_BGR_float32 (-1to1)
-    # teeth_mask_align = tensor2img(prediction)  # numpy_BGR_uint8 (0-255)
-    # plt.imshow(teeth_mask_align)
-    # plt.show()
-    #
-    # data['cond_image'] = teeth_mask_align
-    # prediction = generator.predict(data)  # tensor_BGR_float32 (-1to1)
-    # teeth_mask_align = tensor2img(prediction)  # numpy_BGR_uint8 (0-255)
-
-    # kernel = np.ones((7, 7), np.uint8)
-    # cv2.erode(teeth_mask_align, kernel, iterations=3)
-    # cv2.morphologyEx(teeth_mask_align, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), iterations=2)
-    if if_visual == True:
-        cv2.imwrite(os.path.join('./result_vis', 'teeth_mask_align.png'), teeth_mask_align)
-        plt.imshow(teeth_mask_align)
-        plt.show()
-
-    return  {
-        "crop_teeth_align": teeth_mask_align  #numpy_BGR_uint8
-    }
+    prediction = generator.predict(teeth_contour, mouth_mask)       # tensor_BGR_float32 (-1to1)
+    teeth_countour_aligned = tensor2img(prediction)  # numpy_BGR_uint8 (0-255)
+    return teeth_countour_aligned
 
 

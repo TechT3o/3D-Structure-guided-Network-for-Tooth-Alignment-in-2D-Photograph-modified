@@ -135,13 +135,10 @@ class Contour2ContourGenerator():
         }
         return out
 
-
-    def predict(self, data):
+    def predict(self, teeth_contour, mouth_mask):
         self.netG.eval()
 
         with torch.no_grad():
-            teeth_contour = data['crop_teeth']
-            mouth_mask = data['crop_mask']
 
             out = self.Contour2ContourData_Process(teeth_contour, mouth_mask)
             bf_image = out['bf_image']
@@ -153,7 +150,7 @@ class Contour2ContourGenerator():
                 'bf_image': bf_image.unsqueeze(0),
                 'cond_image': cond_image.unsqueeze(0),   #four-channel 
                 'mask': mask.unsqueeze(0),               #one-channel
-                'mask_image': mask_image.unsqueeze(0),   #three-channel      
+                'mask_image': mask_image.unsqueeze(0),   #three-channel
             })
 
             self.output, self.visuals = self.netG.restoration(self.cond_image, y_t=torch.randn_like(self.bf_image), y_0=self.bf_image, mask=self.mask, sample_num=1)

@@ -83,27 +83,7 @@ def color_transfer(input_img, ref_img):
     return s
 
 def Restore(mouth_align, data):
-    # print(data.keys())
-    import matplotlib.pyplot as plt
-    # Create a figure
-    # plt.figure(figsize=(8, 8))
-    # # Display images in each subplot
-    # plt.subplot(1, 2, 1)
-    # plt.imshow(data['crop_mouth'])
-    # plt.title('Image 1')
-    # plt.axis('off')
-    #
-    # plt.subplot(1, 2, 2)
-    # plt.imshow(mouth_align)
-    # plt.title('Image 2')
-    # plt.axis('off')
-    #
-    # # Adjust layout to prevent overlap
-    # plt.tight_layout()
-    # plt.show()
 
-    # cv2.imwrite('mouth_align.png', data['crop_mouth'])
-    # cv2.imwrite('mouth.png', mouth_align)
     # matched_img = apply_histogram_matching(mouth_align.copy(), data['crop_mouth'].copy())
     matched_img = color_transfer(mouth_align.copy(), data['crop_mouth'].copy())
 
@@ -120,25 +100,18 @@ def Restore(mouth_align, data):
     info_0, info_1 = info[0], info[1]
     face_coord_x = info_0['coord_x']
     face_coord_y = info_0['coord_y']
-    face_size = info_0['face_size']
-    face_new_size = info_0['new_size']
 
     mouth_coord_x = info_1['coord_x']
     mouth_coord_y = info_1['coord_y']
-    mouth_new_size = info_1['new_size']
 
-    # crop_face with new teeth (numpy_BGR_uint8_256*128)
     where = np.where((crop_mask[:,:,0]==255) & (crop_mask[:,:,1]==255) & (crop_mask[:,:,2]==255))
 
-    # crop_face[where[0], where[1]] = mouth_align[where[0], where[1]]
     crop_face[where[0], where[1]] = matched_img[where[0], where[1]]
 
     # detect_face with new teeth (numpy_BGR_uint8_512*512)
-    # print(crop_mask.shape, crop_face.shape, matched_img.shape, detect_face[mouth_coord_y[0]:mouth_coord_y[1], mouth_coord_x[0]:mouth_coord_x[1], :].shape)
     smooth_overlaid_face = overlay_lips(detect_face[mouth_coord_y[0]:mouth_coord_y[1], mouth_coord_x[0]:mouth_coord_x[1], :].copy(),
                             crop_face.copy(), crop_mask.copy())
-    # plt.imshow(disp_img[:, :, ::-1])
-    # plt.show()
+
     # detect_face[mouth_coord_y[0]:mouth_coord_y[1], mouth_coord_x[0]:mouth_coord_x[1], :] = crop_face
     detect_face[mouth_coord_y[0]:mouth_coord_y[1], mouth_coord_x[0]:mouth_coord_x[1], :] = smooth_overlaid_face
 
@@ -150,8 +123,6 @@ def Restore(mouth_align, data):
 
     return {
         "pred_ori_face": ori_face,          #numpy_BGR_uint8_orisize
-        "pred_detect_face": detect_face,    #numpy_BGR_uint8_512*512
-        "pred_crop_face": crop_face,        #numpy_BGR_uint8_256*128
     }
 
 

@@ -5,7 +5,7 @@ from Stage1.SegmentToothContour.SegmentToothContour import SegmentToothContour
 import numpy as np
 
 
-def Stage1(img_path, mode, state, if_visual=False):
+def Stage1(img_path, state, if_visual=False):
     ###################################################################################
     # stage 1
     # face detecttion and crop mouth
@@ -14,16 +14,15 @@ def Stage1(img_path, mode, state, if_visual=False):
     face, mouth_mask, mouth_color = DetectMouth(face)
     crop_face, crop_mask, info_cropmouth = CropMouth(face, mouth_mask, crop_size=(256, 128), if_visual=if_visual)          # crop_face.png & crop.mask.png
 
-    if mode in ['C2C2T_v2', 'C2C2T_v2_facecolor_teethcolor', 'C2C2T_v2_facecolor_lightcolor', 'C2C2T_v2_fourier']:
-        ###################################################################################
-        # stage 2
-        # tooth contour segmentation
-        mouth_masking = MaskingMouth(crop_face, crop_mask, if_visual=if_visual)                                # masking_mouth.png
-        mouth_masking = np.uint8(mouth_masking)
-        ###################################################################################
-        teeth_contour = SegmentToothContour(mouth_masking, state, if_visual=if_visual)
-        teeth_contour = np.uint8(crop_mask/255 * teeth_contour)
-        crop_teeth = teeth_contour
+    ###################################################################################
+    # stage 2
+    # tooth contour segmentation
+    mouth_masking = MaskingMouth(crop_face, crop_mask, if_visual=if_visual)                                # masking_mouth.png
+    mouth_masking = np.uint8(mouth_masking)
+    ###################################################################################
+    teeth_contour = SegmentToothContour(mouth_masking, state, if_visual=if_visual)
+    teeth_contour = np.uint8(crop_mask/255 * teeth_contour)
+    crop_teeth = teeth_contour
     
 
     return {
