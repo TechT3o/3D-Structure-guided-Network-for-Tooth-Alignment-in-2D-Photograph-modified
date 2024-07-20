@@ -1,16 +1,14 @@
 import cv2
-import os
-import dlib
 import numpy as np
-from skimage.filters import gaussian
 from .test import evaluate
-import argparse
 from copy import deepcopy
 from PIL import Image
 
 
-
-def mask(image, parsing, part=11, color=[139, 0, 139]):
+def mask(image: np.ndarray, parsing, part, color):
+	"""
+	Builds a mask
+	"""
 	b, g, r = color      
 	tar_color = np.zeros_like(image)
 	tar_color[:, :, 0] = b
@@ -23,9 +21,11 @@ def mask(image, parsing, part=11, color=[139, 0, 139]):
 	return changed
 
 
-def DetectMouth(image):
-	cp = 'Stage1/DetectMouth/cp/79999_iter.pth'
-	# image = cv2.imread(image_path)
+def detect_mouth(image: np.ndarray):
+	"""
+	Gets mouth region from image of mouth
+	"""
+	cp = 'mouth_masking/DetectMouth/cp/79999_iter.pth'
 
 	origin_img = deepcopy(image)
 	mouth_color = deepcopy(image)
@@ -39,21 +39,19 @@ def DetectMouth(image):
 	mouth_color = mask(mouth_color, parsing, part, color)
 	mouth_mask = mask(mouth_mask, parsing, part, color)
 
-	# print(mouth_color.shape)
-	# cv2.imshow('image', cv2.resize(origin_img, (512, 512)))
-	# cv2.imshow('mask', cv2.resize(mouth_mask, (512, 512)))
-	# cv2.imshow('color', cv2.resize(mouth_color, (512, 512)))
-	# cv2.waitKey(0)
-	# cv2.destroyAllWindows()
-
 	return origin_img, mouth_mask, mouth_color
 
 
-
-
-def CropMouth(face, mouth_mask, crop_size=(256, 256), if_visual=True):
+def crop_mouth(face: np.ndarray, mouth_mask: np.ndarray, crop_size: tuple = (256, 256)):
+	"""
+	Crops the mouth from the image
+	"""
 	
-	location = np.where(mouth_mask == 255) 
+	location = np.where(mouth_mask == 255)
+
+	# Check if location is non zero
+	if len(location[0]) == 0:
+		raise ValueError('No mouth detected')
 	center_u = int((np.min(location[1]) + np.max(location[1])) / 2)   # u-axis is along to width
 	center_v = int((np.min(location[0]) + np.max(location[0])) / 2)   # v-axis is along to height
 
@@ -63,22 +61,12 @@ def CropMouth(face, mouth_mask, crop_size=(256, 256), if_visual=True):
 	crop_mask = mouth_mask.crop((center_u-crop_size[0]//2, center_v-crop_size[1]//2, center_u+crop_size[0]//2, center_v+crop_size[1]//2))
 	crop_face = np.array(crop_face)
 	crop_mask = np.array(crop_mask)
-
-	if if_visual == True:
-		cv2.imwrite(os.path.join('./result_vis', 'crop_mask.png'), crop_mask)
-		cv2.imwrite(os.path.join('./result_vis', 'crop_face.png'), crop_face)
 	
 	info = {
-        'coord_x': (center_u-crop_size[0]//2, center_u+crop_size[0]//2),
-        'coord_y': (center_v-crop_size[1]//2, center_v+crop_size[1]//2),
-        'new_size': crop_size,
-    }
+		'coord_x': (center_u-crop_size[0]//2, center_u+crop_size[0]//2),
+		'coord_y': (center_v-crop_size[1]//2, center_v+crop_size[1]//2),
+		'new_size': crop_size
+	}
 
 	return crop_face, crop_mask, info
-
-
-if __name__ == '__main__':
-	img_path = './DetectMouth/images/img10.jpg'
-	img = cv2.imread(img_path)
-	DetectMouth(img)
 

@@ -1,15 +1,13 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-import os
-from skimage import exposure
 
-def overlay_lips(original_img: np.ndarray, lips_img: np.ndarray, mask) -> np.ndarray:
+
+def overlay_lips(original_img: np.ndarray, lips_img: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """
     Overlay the lips on the original image with color matching and blending.
     :param original_img: Original image
     :param lips_img: Image to overlay on the lips
-    :param points: lip edge points
+    :param mask: lip edge points
     :return: overlayed image
     """
 
@@ -18,8 +16,6 @@ def overlay_lips(original_img: np.ndarray, lips_img: np.ndarray, mask) -> np.nda
 
     # Blur the mask to reduce hard edges
     blurred_mask = cv2.GaussianBlur(mask, (21, 21), 15)
-    # plt.imshow(blurred_mask, cmap='gray')
-    # plt.show()
     alpha = blurred_mask.astype(float) / 255  # Normalize to keep it in range [0, 1]
 
     # Enhance the prominence of the lips by increasing alpha in the lips area
@@ -30,62 +26,53 @@ def overlay_lips(original_img: np.ndarray, lips_img: np.ndarray, mask) -> np.nda
     original_img_float = original_img.astype(float)
     lips_img_float = lips_img.astype(float)
 
-    # print(alpha.shape, lips_img_float.shape, original_img_float.shape)
     # Perform the blending
     blended_img = cv2.multiply(alpha, lips_img_float) + cv2.multiply(1 - alpha, original_img_float)
     blended_img = blended_img.astype(np.uint8)
 
     return blended_img
 
-def apply_histogram_matching(source, reference):
-    # Convert images to LAB color space
-    source_lab = cv2.cvtColor(source, cv2.COLOR_BGR2LAB)
-    reference = cv2.GaussianBlur(reference, (17, 17), 11)
-    reference_lab = cv2.cvtColor(reference, cv2.COLOR_BGR2LAB)
-
-    # Apply histogram matching for each channel separately
-    matched_lab = np.zeros_like(source_lab)
-    for i in range(3):
-        matched_lab[..., i] = exposure.match_histograms(source_lab[..., i], reference_lab[..., i])
-
-    # Convert back to BGR color space
-    matched_bgr = cv2.cvtColor(matched_lab, cv2.COLOR_LAB2BGR)
-    return matched_bgr
-
 
 def get_mean_and_std(x):
+    """
+    Get mean and std of an image
+    """
     x_mean, x_std = cv2.meanStdDev(x)
-    x_mean = np.hstack(np.around(x_mean,2))
-    x_std = np.hstack(np.around(x_std,2))
+    x_mean = np.hstack(np.around(x_mean, 2))
+    x_std = np.hstack(np.around(x_std, 2))
     return x_mean, x_std
 
 
-def color_transfer(input_img, ref_img):
+def reinhard_color_transfer(input_img: np.ndarray, ref_img: np.ndarray):
+    """Reinhards color transfer method"""
     s = cv2.cvtColor(input_img, cv2.COLOR_BGR2LAB)
     t = cv2.cvtColor(ref_img, cv2.COLOR_BGR2LAB)
     s_mean, s_std = get_mean_and_std(s)
     t_mean, t_std = get_mean_and_std(t)
 
     height, width, channel = s.shape
-    for i in range(0,height):
-        for j in range(0,width):
-            for k in range(0,channel):
-                x = s[i,j,k]
+    for i in range(0, height):
+        for j in range(0, width):
+            for k in range(0, channel):
+                x = s[i, j, k]
                 x = ((x-s_mean[k])*(t_std[k]/s_std[k]))+t_mean[k]
                 # round or +0.5
                 x = round(x)
                 # boundary check
-                x = 0 if x<0 else x
-                x = 255 if x>255 else x
+                x = 0 if x < 0 else x
+                x = 255 if x > 255 else x
                 s[i, j, k] = x
 
     s = cv2.cvtColor(s, cv2.COLOR_LAB2BGR)
     return s
 
-def Restore(mouth_align, data):
 
-    # matched_img = apply_histogram_matching(mouth_align.copy(), data['crop_mouth'].copy())
-    matched_img = color_transfer(mouth_align.copy(), data['crop_mouth'].copy())
+def restore_image(mouth_align: np.ndarray, data: dict):
+    """
+    restore_face the image to the original size and overlay the aligned teeth on the face.
+    """
+
+    matched_img = reinhard_color_transfer(mouth_align.copy(), data['crop_mouth'].copy())
 
     # Blend the matched image with the original target image to smooth out artifacts
     alpha = 0.1  # Adjust alpha for blending, higher alpha means more of the original image is retained
@@ -104,28 +91,20 @@ def Restore(mouth_align, data):
     mouth_coord_x = info_1['coord_x']
     mouth_coord_y = info_1['coord_y']
 
-    where = np.where((crop_mask[:,:,0]==255) & (crop_mask[:,:,1]==255) & (crop_mask[:,:,2]==255))
+    where = np.where((crop_mask[:, :, 0] == 255) & (crop_mask[:, :, 1] == 255) & (crop_mask[:, :, 2] == 255))
 
     crop_face[where[0], where[1]] = matched_img[where[0], where[1]]
 
     # detect_face with new teeth (numpy_BGR_uint8_512*512)
-    smooth_overlaid_face = overlay_lips(detect_face[mouth_coord_y[0]:mouth_coord_y[1], mouth_coord_x[0]:mouth_coord_x[1], :].copy(),
-                            crop_face.copy(), crop_mask.copy())
+    smooth_overlaid_face = overlay_lips(detect_face[mouth_coord_y[0]:mouth_coord_y[1],
+                                        mouth_coord_x[0]:mouth_coord_x[1], :].copy(),
+                                        crop_face.copy(), crop_mask.copy())
 
-    # detect_face[mouth_coord_y[0]:mouth_coord_y[1], mouth_coord_x[0]:mouth_coord_x[1], :] = crop_face
     detect_face[mouth_coord_y[0]:mouth_coord_y[1], mouth_coord_x[0]:mouth_coord_x[1], :] = smooth_overlaid_face
 
-    # ori_face with new teeth (numpy_BGR_uint8_orisize)
-    # detect_face_resize = cv2.resize(detect_face, face_size)
-    detect_face_resize = cv2.resize(detect_face, ori_face[face_coord_y[0]:face_coord_y[1], face_coord_x[0]:face_coord_x[1], :].shape[:2][::-1])
+    detect_face_resize = cv2.resize(detect_face, ori_face[face_coord_y[0]:face_coord_y[1],
+                                                 face_coord_x[0]:face_coord_x[1], :].shape[:2][::-1])
+
     ori_face[face_coord_y[0]:face_coord_y[1], face_coord_x[0]:face_coord_x[1], :] = detect_face_resize
 
-
-    return {
-        "pred_ori_face": ori_face,          #numpy_BGR_uint8_orisize
-    }
-
-
-
-
-
+    return ori_face
